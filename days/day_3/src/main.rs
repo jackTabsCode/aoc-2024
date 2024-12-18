@@ -1,3 +1,5 @@
+use regex::Regex;
+
 #[allow(dead_code)]
 static EXAMPLE: &str = include_str!("example.txt");
 static INPUT: &str = include_str!("input.txt");
@@ -36,6 +38,42 @@ fn part_1() {
     println!("{total}")
 }
 
+fn part_2() {
+    let mut total = 0;
+    let mut enabled = true;
+
+    let re = Regex::new(
+        r"(?x)
+    (do\(\)) # turns on multiplication
+    |
+    (don't\(\)) # turns off multiplication
+    |
+    (mul\((\d+),(\d+)\)) # multiply two numbers",
+    )
+    .unwrap();
+    for cap in re.captures_iter(INPUT) {
+        if cap.get(1).is_some() {
+            enabled = true
+        }
+
+        if cap.get(2).is_some() {
+            enabled = false
+        }
+
+        if enabled && cap.get(3).is_some() {
+            if let (Some(x), Some(y)) = (cap.get(4), cap.get(5)) {
+                let x = x.as_str().parse::<u32>().unwrap();
+                let y = y.as_str().parse::<u32>().unwrap();
+
+                total += x * y;
+            }
+        }
+    }
+
+    println!("{total}")
+}
+
 fn main() {
     part_1();
+    part_2();
 }
