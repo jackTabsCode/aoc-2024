@@ -1,13 +1,13 @@
-use std::{fmt, ops::Add};
+use std::{collections::HashSet, fmt, ops::Add};
 
 #[allow(dead_code)]
 static EXAMPLE: &str = include_str!("example.txt");
 static INPUT: &str = include_str!("input.txt");
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Vector2(i32, i32);
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 enum Direction {
     Up,
     Down,
@@ -77,7 +77,7 @@ impl fmt::Display for Cell {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Map {
     cells: Vec<Vec<Cell>>,
 }
@@ -104,11 +104,11 @@ impl Map {
         Map { cells }
     }
 
-    pub fn get_guard_pos(&mut self) -> Vector2 {
-        for (row, rows) in self.cells.iter_mut().enumerate() {
-            for (col, cell) in rows.iter_mut().enumerate() {
-                if let Cell::Guard(_) = cell {
-                    return Vector2(row as i32, col as i32);
+    pub fn get_guard_pos_and_dir(&self) -> (Vector2, Direction) {
+        for (row, rows) in self.cells.iter().enumerate() {
+            for (col, cell) in rows.iter().enumerate() {
+                if let Cell::Guard(dir) = cell {
+                    return (Vector2(row as i32, col as i32), *dir);
                 }
             }
         }
@@ -116,7 +116,7 @@ impl Map {
         unreachable!()
     }
 
-    pub fn get_cell_at_pos(&mut self, pos: &Vector2) -> Option<&Cell> {
+    pub fn get_cell_at_pos(&self, pos: &Vector2) -> Option<&Cell> {
         self.cells.get(pos.0 as usize)?.get(pos.1 as usize)
     }
 
@@ -139,13 +139,7 @@ fn part_1() {
     loop {
         // println!("{map}");
 
-        let guard_pos = map.get_guard_pos();
-        let guard_dir = *match map.get_cell_at_pos(&guard_pos) {
-            Some(Cell::Guard(dir)) => dir,
-            _ => {
-                continue;
-            }
-        };
+        let (guard_pos, guard_dir) = map.get_guard_pos_and_dir();
 
         let next_pos = guard_pos + &guard_dir;
         let next_cell = map.get_cell_at_pos(&next_pos).cloned();
@@ -173,6 +167,64 @@ fn part_1() {
     println!("{}", map.count_visited());
 }
 
+fn simulate(mut map: Map) -> bool {
+    let (mut guard_pos, mut guard_dir) = map.get_guard_pos_and_dir();
+
+    let mut seen = HashSet::<(Vector2, Direction)>::new();
+    seen.insert((guard_pos, guard_dir));
+
+    loop {
+        let next_pos = guard_pos + &guard_dir;
+
+        let next_cell = match map.get_cell_at_pos(&next_pos) {
+            Some(&cell) => cell,
+            None => return false,
+        };
+
+        if next_cell == Cell::Obstructed {
+            guard_dir = Direction::rotate_90(&guard_dir);
+            map.set_cell_at_pos(&guard_pos, Cell::Guard(guard_dir));
+        } else {
+            map.set_cell_at_pos(&guard_pos, Cell::Empty);
+            guard_pos = next_pos;
+        }
+
+        if !seen.insert((guard_pos, guard_dir)) {
+            return true;
+        }
+    }
+}
+
+fn part_2() {
+    let map = Map::from_input(INPUT);
+    let (guard_start_pos, _) = map.get_guard_pos_and_dir();
+
+    let mut count = 0;
+
+    for (row, rows) in map.cells.iter().enumerate() {
+        for (col, _) in rows.iter().enumerate() {
+            let pos = Vector2(row as i32, col as i32);
+            if pos == guard_start_pos {
+                continue;
+            }
+
+            if let Some(&cell) = map.get_cell_at_pos(&pos) {
+                if cell != Cell::Obstructed {
+                    let mut test_map = map.clone();
+                    test_map.set_cell_at_pos(&pos, Cell::Obstructed);
+
+                    if simulate(test_map) {
+                        count += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    println!("{}", count);
+}
+
 fn main() {
     part_1();
+    part_2();
 }
