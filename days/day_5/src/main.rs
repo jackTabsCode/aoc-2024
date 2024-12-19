@@ -10,7 +10,7 @@ struct Rule {
     after: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Update {
     pages: Vec<u32>,
 }
@@ -34,6 +34,26 @@ impl Update {
         }
 
         true
+    }
+
+    pub fn fix(&mut self, rules: &[Rule]) {
+        let mut changed = true;
+
+        while changed {
+            changed = false;
+
+            for rule in rules {
+                let before = self.pages.iter().position(|p| *p == rule.before);
+                let after = self.pages.iter().position(|p| *p == rule.after);
+
+                if let (Some(before), Some(after)) = (before, after) {
+                    if before > after {
+                        self.pages.swap(before, after);
+                        changed = true;
+                    }
+                }
+            }
+        }
     }
 
     pub fn middle_number(&self) -> u32 {
@@ -98,6 +118,28 @@ fn part_1() {
     println!("{total}");
 }
 
+fn part_2() {
+    let mut input = parse();
+
+    let mut total = 0;
+
+    for update in &mut input.updates {
+        let valid = input.rules.iter().all(|rule| update.rule_passes(rule));
+
+        if !valid {
+            update.fix(&input.rules);
+            let fixed = input.rules.iter().all(|rule| update.rule_passes(rule));
+
+            if fixed {
+                total += update.middle_number();
+            }
+        }
+    }
+
+    println!("{total}");
+}
+
 fn main() {
     part_1();
+    part_2();
 }
